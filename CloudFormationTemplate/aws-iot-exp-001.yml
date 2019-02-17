@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: An AWS cloudformation template for simple iot device simulator
+Mappings:
+  SubnetConfig:
+    VPC:
+      CIDR: 10.0.0.0/16
+    SubnetA:
+      CIDR: 10.0.0.0/20
+  EC2InstanceConfig:
+    Security:
+      KeyName: ec2-eu-west-1-pair-001
+    InstanceType: 
+      Experiment: t2.micro
+    ImageId: 
+      Experiment: ami-0fad7378adf284ce0
+Resources: 
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 
+        Fn::FindInMap:
+        - SubnetConfig
+        - VPC
+        - CIDR
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+        VpcId: !Ref VPC
+        InternetGatewayId: !Ref InternetGateway
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 
+        Fn::FindInMap:
+        - SubnetConfig
+        - SubnetA
+        - CIDR
+      MapPublicIpOnLaunch: true 
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC 
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+  SubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref SubnetA
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow SSH traffic in, all trafic out"
+      VpcId: !Ref VPC
+      # The incoming traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          # The range of ip address to allow traffic from
+          CidrIp: 0.0.0.0/0
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: 
+        Fn::FindInMap:
+        - EC2InstanceConfig
+        - InstanceType
+        - Experiment
+      ImageId:
+        Fn::FindInMap:
+        - EC2InstanceConfig
+        - ImageId
+        - Experiment
+      KeyName: 
+        Fn::FindInMap:
+        - EC2InstanceConfig
+        - Security
+        - KeyName
+      SubnetId: !Ref SubnetA
+      SecurityGroupIds:
+      - Ref: SecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -ex
+          yum update -y
+          yum install -y python3
+          pip3 install virtualenv
+          cd /home/ec2-user/
+          virtualenv iot-venv
+          mkdir -p /home/ec2-user/scripts
+          mkdir -p /home/ec2-user/certs/
+          wget https://www.amazontrust.com/repository/AmazonRootCA1.pem -O /home/ec2-user/certs/rootCA.pem
+          source iot-venv/bin/activate
+          pip install AWSIoTPythonSDK
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: aws-iot-access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - "iot:*"
+            Resource:
+            - "*"
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - !Ref EC2Role
+      InstanceProfileName: EC2InstanceProfile
