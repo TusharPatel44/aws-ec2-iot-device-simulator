@@ -10,7 +10,7 @@ Simple AWS IoT device simulator in Python. The simulator scripts run on AWS EC2 
 
 ### Overview
 The cloudformation template will create a t2.micro AWS EC2 instance as the 'thing' or 'device'. 
-The device (ec2 instance) requires identification in order to connect to the AWS IoT.
+The device (ec2 instance) requires identification (private key and certificate) in order to connect to AWS IoT. 
 After identification document is ready and installed, the python script that produce the data (act as device) can be run. 
 
 ## Devices
