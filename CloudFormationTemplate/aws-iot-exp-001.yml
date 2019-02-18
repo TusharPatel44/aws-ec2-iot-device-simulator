@@ -92,11 +92,11 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash -ex
           yum update -y
-          yum install -y python3
+          yum install -y python3 git
           pip3 install virtualenv
           cd /home/ec2-user/
           virtualenv iot-venv
-          mkdir -p /home/ec2-user/scripts
+          git clone https://github.com/vpangaldus/aws-ec2-iot-device-simulator.git
           mkdir -p /home/ec2-user/certs/
           wget https://www.amazontrust.com/repository/AmazonRootCA1.pem -O /home/ec2-user/certs/rootCA.pem
           source iot-venv/bin/activate
